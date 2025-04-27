@@ -73,6 +73,24 @@ button:hover {
     background-color: #45a049;
 }
 
+/* ファイル読み込みボタンのスタイル */
+.file-button {
+    padding: 8px 16px;
+    background-color: #007bff; /* 青系の色 */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-block; /* labelをインラインブロック要素に */
+    text-align: center;
+    margin-left: 10px; /* 他のコントロールとの間隔 */
+}
+
+.file-button:hover {
+    background-color: #0056b3;
+}
+/* --- */
+
 .display-area {
     text-align: center;
     padding: 20px;

@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const originalTextDisplayArea = document.querySelector('.original-text-area'); // 元の文章エリア全体を取得
     const autoScrollToggle = document.getElementById('autoScrollToggle'); // 自動スクロールのトグル
     const toggleOriginalTextDisplay = document.getElementById('toggleOriginalTextDisplay'); // 元の文章表示トグル
+    const fileInput = document.getElementById('fileInput'); // ファイル入力要素を追加
     
     let words = []; // { chunk: string, originalLineNumber: number } の配列
     let originalTokens = []; // 全ての解析済みトークンを格納 (行番号付き)
@@ -86,6 +87,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // トグルスイッチの変更イベントにリスナーを追加
     toggleOriginalTextDisplay.addEventListener('change', toggleOriginalTextVisibility);
+
+    // ファイル入力のイベントリスナーを追加
+    fileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+            return; // ファイルが選択されなかった場合
+        }
+
+        // テキストファイルか簡易チェック
+        if (!file.type.match('text/plain') && !file.name.endsWith('.txt')) {
+             showError('テキストファイル (.txt) を選択してください。');
+             fileInput.value = ''; // 入力をリセット
+             return;
+        }
+
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            const fileContent = e.target.result;
+            textInput.value = fileContent; // テキストエリアに内容を設定
+            console.log('ファイルの内容を読み込みました。');
+            hideError(); // エラーがあれば消す
+            clearResults(); // 既存の解析結果などをクリア
+            // 必要に応じて、自動で解析を開始するなどの処理をここに追加できます
+            // 例: startButton.click(); // 開始ボタンを押すなど
+        };
+
+        reader.onerror = (e) => {
+            console.error('ファイルの読み込み中にエラーが発生しました:', e);
+            showError('ファイルの読み込みに失敗しました。');
+        };
+
+        reader.readAsText(file, 'UTF-8'); // UTF-8として読み込む
+        // 同じファイルを連続で選択できるように値をリセット
+        fileInput.value = ''; 
+    });
 
     // テキストを形態素解析して適切な長さの塊に分割する関数
     function splitText(text, targetChunkSize) {
