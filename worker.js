@@ -75,9 +75,10 @@ self.onmessage = function(event) {
 
         // --- 2. チャンク生成と進捗送信 --- 
         console.log('Worker: Generating chunks...');
-        const chunkData = []; // { chunk: string, originalLineNumber: number } の配列
+        const chunkData = []; // { chunk: string, originalLineNumber: number, startTokenIndex: number, endTokenIndex: number } の配列に変更
         let currentChunk = '';
         let currentChunkStartLine = -1; // 現在のチャンクが始まった行番号
+        let currentChunkStartTokenIndex = 0; // ★★★ 現在のチャンクの開始トークンインデックスを追加 ★★★
         let currentLength = 0;
         let prefixForNextToken = '';
         let processedTokensCount = 0;
@@ -165,10 +166,15 @@ self.onmessage = function(event) {
             // --- チャンクの確定と次の準備 --- 
             if (pushCurrentChunk) { // まず、現在のチャンクを確定するかどうか
                 if (currentChunk) { 
-                     // 確定するチャンクの情報（現在のcurrentChunkとcurrentChunkStartLine）を保存
-                     // currentChunkStartLine が -1 のままなら、現在のトークンの行を使う（括弧などが先行した場合）
                      const resolvedStartLine = (currentChunkStartLine !== -1) ? currentChunkStartLine : tokenLine;
-                     chunkData.push({ chunk: currentChunk, originalLineNumber: resolvedStartLine });
+                     // ★★★ チャンクに対応するトークンインデックス範囲を追加 ★★★
+                     const endTokenIndex = i -1; // 現在のループの直前のトークンまで
+                     chunkData.push({
+                         chunk: currentChunk,
+                         originalLineNumber: resolvedStartLine,
+                         startTokenIndex: currentChunkStartTokenIndex, // 開始インデックス
+                         endTokenIndex: endTokenIndex >= currentChunkStartTokenIndex ? endTokenIndex : currentChunkStartTokenIndex // 終了インデックス (最低でも開始と同じ)
+                     });
                      // 進捗送信
                      if (i % 50 === 0 || i === tokens.length - 1) {
                         self.postMessage({ type: 'progress', processed: processedTokensCount, total: totalTokens });
@@ -178,7 +184,8 @@ self.onmessage = function(event) {
                  currentChunk = nextChunkContent; // 次のチャンクの初期内容を設定
                  currentLength = nextChunkContent.length; // 長さも設定
                  currentChunkStartLine = nextChunkStartLine; // 次のチャンクの開始行を設定 (-1の場合もある)
-                 // nextChunkContentとnextChunkStartLineはこのループイテレーションの処理で決定されている
+                 // ★★★ 次のチャンクの開始トークンインデックスを記録 ★★★
+                 currentChunkStartTokenIndex = i; // 現在のトークンが次の開始
             }
             
             // --- 進捗送信 (ループの最後など) --- 
@@ -191,15 +198,22 @@ self.onmessage = function(event) {
         // ループ終了後、最後のチャンクがあれば追加
         if (currentChunk) {
              const resolvedStartLine = (currentChunkStartLine !== -1) ? currentChunkStartLine : (tokens.length > 0 ? tokens[tokens.length-1].originalLineNumber : 0);
-             chunkData.push({ chunk: currentChunk, originalLineNumber: resolvedStartLine });
+             // ★★★ 最後のチャンクのインデックス範囲 ★★★
+             const endTokenIndex = tokens.length - 1;
+             chunkData.push({
+                 chunk: currentChunk,
+                 originalLineNumber: resolvedStartLine,
+                 startTokenIndex: currentChunkStartTokenIndex,
+                 endTokenIndex: endTokenIndex >= currentChunkStartTokenIndex ? endTokenIndex : currentChunkStartTokenIndex
+             });
         }
 
         // --- 3. 完了通知 --- 
-        console.log('Worker: Chunk generation complete, sending done message');
+        console.log('Worker: Chunk generation complete, sending done message with token indices'); // ログ変更
         self.postMessage({
              type: 'done',
              tokens: tokens, 
-             chunkData: chunkData, 
+             chunkData: chunkData, // トークンインデックス情報が含まれたchunkData
              processed: totalTokens, 
              total: totalTokens 
         });

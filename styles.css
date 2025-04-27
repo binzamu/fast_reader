@@ -196,8 +196,7 @@ button:hover {
     background-color: #fff; /* 背景色 */
 }
 
-/* クリック関連のスタイルは削除 */
-/*
+/* クリック関連のスタイルを追加 */
 #originalTextContent span.clickable-word {
     cursor: pointer;
     padding: 1px 2px;
@@ -207,14 +206,14 @@ button:hover {
 }
 
 #originalTextContent span.clickable-word:hover {
-    background-color: #d0e0ff;
+    background-color: #e0e0ff; /* ホバー時の薄いハイライト */
 }
 
-#originalTextContent span.selected-start-word {
-    background-color: #a0c0ff; 
+#originalTextContent span.clicked-word {
+    background-color: #a0c0ff; /* クリック時のハイライト */
     font-weight: bold;
+    transition: background-color 0.1s ease-out;
 }
-*/
 
 /* 行ハイライト用のスタイルは削除 */
 /*

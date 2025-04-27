@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentHighlightedLineElement = null; // ハイライト中の行要素を再度宣言
     let analysisInProgress = false; 
     let analysisComplete = false; 
+    let currentClickedWordSpan = null; // クリックされた単語のspanを保持
 
     let worker = null; // Workerインスタンス
 
@@ -62,15 +63,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 元の文章を行ごとに表示する関数
-    function displayOriginalTextByLines(fullText) {
+    function displayOriginalTextWithTokens(tokens) {
         originalTextContent.innerHTML = ''; // クリア
-        const lines = fullText.split('\n');
-        lines.forEach((lineText, index) => {
-            const lineDiv = document.createElement('div');
-            lineDiv.id = `line-${index}`; // 行番号(0-based)でID付け
-            lineDiv.textContent = lineText || ' '; // 空行も高さを保つためにスペース
-            originalTextContent.appendChild(lineDiv);
+        if (!tokens || tokens.length === 0) return;
+
+        let currentLineDiv = null;
+        let currentLineNumber = -1;
+
+        tokens.forEach((token, index) => {
+            // 行が変わったら新しいdivを作成
+            if (token.originalLineNumber !== currentLineNumber) {
+                currentLineNumber = token.originalLineNumber;
+                currentLineDiv = document.createElement('div');
+                currentLineDiv.id = `line-${currentLineNumber}`;
+                originalTextContent.appendChild(currentLineDiv);
+            }
+
+            // トークンをspanで囲む
+            const tokenSpan = document.createElement('span');
+            tokenSpan.textContent = token.surface_form;
+            tokenSpan.dataset.tokenIndex = index; // トークンインデックスをデータ属性として保持
+            tokenSpan.classList.add('clickable-word'); // クリック可能クラスを追加
+
+            // 改行トークンはそのまま<br>として扱うか、divの区切りで表現
+            // ここではspanでラップし、CSSで調整することを想定
+            // if (token.surface_form === '\n') { ... }
+
+            currentLineDiv.appendChild(tokenSpan);
         });
+        console.log('元の文章をトークンベースで表示しました');
     }
 
     // 元の文章エリアの表示/非表示を切り替える関数
@@ -255,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const finalChunks = chunks.filter(chunk => chunk.length > 0);
             console.log('分割結果 (句読点・括弧・助詞結合後):', finalChunks);
-            displayOriginalTextByLines(textInput.value); // 元のテキスト表示関数を呼び出し
+            displayOriginalTextWithTokens(tokens); // 元のテキスト表示関数を呼び出し
             return { tokens, chunks: finalChunks };
         } catch (err) {
             showError('テキストの解析中にエラーが発生しました: ' + err.message);
@@ -271,40 +292,19 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('次の単語を表示:', currentIndex, currentChunkData.chunk);
             wordDisplay.textContent = currentChunkData.chunk;
 
-            // --- 対応する元のテキスト行をハイライト & スクロール --- 
-            // 以前のハイライトを削除
-            if (currentHighlightedLineElement) {
-                currentHighlightedLineElement.classList.remove('selected-line');
-            }
-            // 現在のチャンクデータから行番号を取得
-            const targetLineNumber = currentChunkData.originalLineNumber;
-            const targetLineElement = document.getElementById(`line-${targetLineNumber}`);
-
-            if (targetLineElement) {
-                targetLineElement.classList.add('selected-line');
-                currentHighlightedLineElement = targetLineElement;
-                
-                // 自動スクロールが有効な場合のみスクロール
-                if (autoScrollToggle.checked) {
-                    targetLineElement.scrollIntoView({
-                        behavior: 'smooth', 
-                        block: 'nearest'   
-                    });
-                }
-            } else {
-                 currentHighlightedLineElement = null; 
-            }
-            // --- ハイライト & スクロール ここまで ---
-
+            // 次のインデックスへ
             currentIndex++;
+
+            // 最後まで表示したら停止
+            if (currentIndex >= words.length) {
+                stopDisplay();
+                // wordDisplay.textContent = "完了"; // 完了メッセージは任意
+                 startButton.textContent = '開始'; // 完了したら開始に戻す
+                 currentIndex = 0; // 最初に戻す
+            }
         } else {
-            console.log('最後のチャンクを表示しました。');
-            stopDisplay(); // 完全に停止
-             // 最後のハイライトを消す (任意)
-             if (currentHighlightedLineElement) {
-                 currentHighlightedLineElement.classList.remove('selected-line');
-                 currentHighlightedLineElement = null;
-             }
+            stopDisplay(); // インデックスがおかしい場合も停止
+             startButton.textContent = '開始';
         }
     }
 
@@ -408,12 +408,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (!analysisInProgress) return; 
                             console.log('Main: 全解析完了');
                             originalTokens = tokens || []; 
-                            words = chunkData || []; // チャンクデータ配列を受け取る
+                            words = chunkData || []; // チャンクデータ配列を受け取る (start/endTokenIndexを含む)
                             analysisInProgress = false;
                             analysisComplete = true;
                             hideStatus();
-                            // 元のテキストを行ごとに表示
-                            displayOriginalTextByLines(textInput.value); 
+                            // ★★★ 元のテキスト表示関数を呼び出すように変更 ★★★
+                            displayOriginalTextWithTokens(originalTokens); 
                             startButton.textContent = '開始'; 
                             console.log('解析が完了し、開始ボタンで表示を開始できます。');
                             break;
@@ -457,10 +457,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- RSVP表示関連 --- 
     function startRsvpDisplay() {
         if (intervalId) return; 
-        if (!analysisComplete || words.length === 0 || currentIndex >= words.length) {
-             console.log('表示を開始できません。解析未完了、チャンクがない、またはインデックスが範囲外です。');
+        if (!analysisComplete || words.length === 0) { // currentIndexのチェックは削除
+             console.log('表示を開始できません。解析未完了またはチャンクがありません。');
              startButton.textContent = '開始'; 
              return; 
+        }
+        // currentIndex が範囲外なら0にリセット
+        if (currentIndex < 0 || currentIndex >= words.length) {
+            currentIndex = 0;
         }
 
         const displayDuration = parseInt(durationInput.value);
@@ -484,4 +488,58 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Worker連携 --- 
     // function sendNextUnitToWorker() { ... } // 不要
     // function updateProgress() { ... } // Workerメッセージハンドラ内で直接更新
+
+    // ★★★ 元のテキストクリック時のジャンプ処理を追加 ★★★
+    originalTextContent.addEventListener('click', (event) => {
+        const clickedSpan = event.target.closest('span.clickable-word');
+        if (!clickedSpan || !analysisComplete) {
+            return; // クリック可能な単語以外、または解析完了前は無視
+        }
+
+        const clickedTokenIndex = parseInt(clickedSpan.dataset.tokenIndex, 10);
+        if (isNaN(clickedTokenIndex)) {
+            return;
+        }
+
+        console.log(`Clicked token index: ${clickedTokenIndex}`);
+
+        // クリックされたトークンインデックスを含むチャンクを探す
+        let targetWordIndex = -1;
+        for (let i = 0; i < words.length; i++) {
+            // chunkDataにstartTokenIndexとendTokenIndexが含まれている前提
+            if (words[i].startTokenIndex <= clickedTokenIndex && words[i].endTokenIndex >= clickedTokenIndex) {
+                targetWordIndex = i;
+                break;
+            }
+        }
+
+        if (targetWordIndex !== -1) {
+            console.log(`Jumping to word index: ${targetWordIndex}`);
+            if (intervalId) {
+                stopDisplay(); // 表示中なら停止
+            }
+            currentIndex = targetWordIndex;
+            displayNextWord(); // ジャンプ先の単語を表示
+            startButton.textContent = '開始'; // ボタンは「開始」状態にする
+
+            // (任意) クリックされた単語を一時的にハイライト
+            if (currentClickedWordSpan) {
+                currentClickedWordSpan.classList.remove('clicked-word'); // 前のハイライトを消す
+            }
+            clickedSpan.classList.add('clicked-word');
+            currentClickedWordSpan = clickedSpan;
+            // 一定時間後にハイライトを消す
+            setTimeout(() => {
+                if (clickedSpan.classList.contains('clicked-word')) {
+                    clickedSpan.classList.remove('clicked-word');
+                    if (currentClickedWordSpan === clickedSpan) {
+                        currentClickedWordSpan = null;
+                    }
+                }
+            }, 500); // 0.5秒後に消す
+
+        } else {
+            console.warn(`Could not find word chunk for token index: ${clickedTokenIndex}`);
+        }
+    });
 }); 
