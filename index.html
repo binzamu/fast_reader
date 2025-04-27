@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSVP Reader</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script> --> <!-- Workerで読み込むため不要 -->
+</head>
+<body>
+    <div class="container">
+        <h1>RSVP Reader</h1>
+        <div id="errorMessage" class="error-message"></div>
+        <div id="statusMessage" class="status-message"></div> <!-- ステータス表示用 -->
+        <div class="input-section">
+            <textarea id="textInput" placeholder="テキストを入力してください"></textarea>
+            <div class="controls">
+                <input type="number" id="chunkSize" value="15" min="1" max="30" class="control-input">
+                <label for="chunkSize">表示文字数(目安)</label>
+                <input type="number" id="duration" value="400" min="50" max="2000" step="10" class="control-input">
+                <label for="duration">表示時間(ms)</label>
+                <button id="startButton">開始</button>
+                <!-- <button id="jumpButton" disabled>現在位置へジャンプ</button> -->
+                <div class="toggle-control">
+                    <input type="checkbox" id="autoScrollToggle">
+                    <label for="autoScrollToggle">自動スクロール</label>
+                </div>
+                <div class="toggle-control">
+                    <input type="checkbox" id="toggleOriginalTextDisplay">
+                    <label for="toggleOriginalTextDisplay">元の文章を表示</label>
+                </div>
+            </div>
+        </div>
+        <div id="displayArea" class="display-area">
+            <div id="wordDisplay"></div>
+        </div>
+        <div id="originalTextDisplayArea" class="original-text-area">
+            <h2>元の文章 (クリックで開始位置を選択)</h2>
+            <p id="originalTextContent"></p>
+        </div>
+        <!-- 形態素解析結果エリア削除 -->
+        <!-- 
+        <div id="analysisResult" class="analysis-result-area">
+            <h2>形態素解析結果</h2>
+            <pre id="analysisOutput"></pre>
+        </div> 
+        -->
+    </div>
+    <script src="app.js"></script>
+</body>
+</html> 

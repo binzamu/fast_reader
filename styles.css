@@ -1,0 +1,207 @@
+body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    text-align: center;
+    color: #333;
+}
+
+.input-section {
+    margin-bottom: 20px;
+}
+
+textarea {
+    width: 100%;
+    height: 150px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: vertical;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.toggle-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 10px; /* 他のコントロールとの間隔 */
+}
+
+.control-input {
+    width: 60px; /* 少し小さめに */
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+#wpm {
+    width: 80px;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+button {
+    padding: 8px 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+.display-area {
+    text-align: center;
+    padding: 20px;
+    min-height: 100px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+}
+
+#wordDisplay {
+    font-size: 48px;
+    font-weight: bold;
+    color: #333;
+}
+
+.error-message {
+    padding: 10px;
+    margin: 10px 0;
+    background-color: #ffebee;
+    color: #c62828;
+    border-radius: 4px;
+    display: none;
+}
+
+.error-message.show {
+    display: block;
+}
+
+.status-message {
+    padding: 10px;
+    margin: 10px 0;
+    background-color: #e3f2fd;
+    color: #0d47a1;
+    border-radius: 4px;
+    display: none; /* 通常は非表示 */
+    text-align: center;
+}
+
+.status-message.show {
+    display: block;
+}
+
+/* 行ハイライト用のスタイルは削除 */
+/*
+#originalTextContent div.selected-line {
+    background-color: #d0e0ff; 
+    transition: background-color 0.1s ease-out; 
+}
+*/
+
+/* 形態素解析結果エリアのスタイル削除 */
+/*
+.analysis-result-area {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #eef;
+    border-radius: 4px;
+    border: 1px solid #cce;
+}
+
+.analysis-result-area h2 {
+    margin-top: 0;
+    color: #336;
+    font-size: 1.2em;
+}
+
+#analysisOutput {
+    white-space: pre-wrap; 
+    word-wrap: break-word; 
+    font-family: monospace;
+    background-color: #fff;
+    padding: 10px;
+    border-radius: 4px;
+    max-height: 300px; 
+    overflow-y: auto; 
+}
+*/
+
+.original-text-area {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    display: none; /* デフォルトで非表示 */
+}
+
+.original-text-area.visible {
+    display: block; /* 表示用のクラス */
+}
+
+.original-text-area h2 {
+    margin-top: 0;
+    color: #555;
+    font-size: 1.2em;
+}
+
+#originalTextContent {
+    line-height: 1.8;
+    max-height: 200px; /* 例: 高さを200pxに制限 */
+    overflow-y: auto; /* 縦方向にスクロール可能にする */
+    padding: 5px; /* 内側に少し余白 */
+    border: 1px solid #ccc; /* 境界線を追加 */
+    background-color: #fff; /* 背景色 */
+}
+
+/* クリック関連のスタイルは削除 */
+/*
+#originalTextContent span.clickable-word {
+    cursor: pointer;
+    padding: 1px 2px;
+    margin: 0 1px;
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+}
+
+#originalTextContent span.clickable-word:hover {
+    background-color: #d0e0ff;
+}
+
+#originalTextContent span.selected-start-word {
+    background-color: #a0c0ff; 
+    font-weight: bold;
+}
+*/
+
+/* 行ハイライト用のスタイルは削除 */
+/*
+#originalTextContent div.selected-line {
+    background-color: #d0e0ff; 
+    transition: background-color 0.1s ease-out; 
+}
+*/ 
