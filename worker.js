@@ -1,9 +1,9 @@
 // worker.js
 
-// Kuromoji.jsをインポート (Worker内でのスクリプト読み込み)
+// Kuromoji.jsをインポート (ローカルファイルから)
 try {
-    // CDNのURLを指定
-    importScripts('https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js');
+    // CDNのURLを指定 → ローカルパスに変更
+    importScripts('kuromoji/kuromoji.js');
 } catch (e) {
     // エラーをメインスレッドに通知
     self.postMessage({ type: 'error', message: 'Kuromoji.jsの読み込みに失敗しました: ' + e.message });
@@ -12,16 +12,17 @@ try {
 
 let tokenizer = null;
 
-// Kuromojiの初期化 (非同期だが、Worker開始時に実行)
-kuromoji.builder({ dicPath: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/' }).build((err, _tokenizer) => {
+// Kuromojiの初期化 (ローカル辞書から)
+// CDNのパス → ローカルパスに変更
+kuromoji.builder({ dicPath: 'kuromoji/dict/' }).build((err, _tokenizer) => {
     if (err) {
-        self.postMessage({ type: 'error', message: '形態素解析エンジンの初期化(Worker)に失敗しました: ' + err.message });
+        self.postMessage({ type: 'error', message: '形態素解析エンジンの初期化(Worker)に失敗しました: ' + err.message + ' (辞書パスを確認: kuromoji/dict/)' });
         throw err;
     }
     tokenizer = _tokenizer;
     // 初期化完了をメインスレッドに通知 (任意)
     self.postMessage({ type: 'initialized' });
-    console.log('Worker: Kuromoji initialized');
+    console.log('Worker: Kuromoji initialized from local files');
 });
 
 // メインスレッドからのメッセージを受信
