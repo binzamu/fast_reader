@@ -12,7 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // const analysisOutput = document.getElementById('analysisOutput'); // 不要
     const originalTextContent = document.getElementById('originalTextContent'); // 元の文章表示要素を取得
     const originalTextDisplayArea = document.querySelector('.original-text-area'); // 元の文章エリア全体を取得
-    const autoScrollToggle = document.getElementById('autoScrollToggle'); // 自動スクロールのトグル
     const toggleOriginalTextDisplay = document.getElementById('toggleOriginalTextDisplay'); // 元の文章表示トグル
     const fileInput = document.getElementById('fileInput'); // ファイル入力要素を追加
     const bookmarkButton = document.getElementById('bookmarkButton'); // しおり保存ボタン
@@ -679,10 +678,10 @@ document.addEventListener('DOMContentLoaded', () => {
         intervalId = setInterval(displayNextWord, interval);
         console.log('表示を開始/再開しました');
         displayNextWord(); 
-        // ★★★ 開始時に現在位置へスクロール ★★★
-        if (autoScrollToggle.checked && words[currentIndex-1] && words[currentIndex-1].originalLineNumber !== undefined) { // displayNextWordが呼ばれた後なので index-1 を見る
-            scrollToLine(words[currentIndex-1].originalLineNumber);
-        }
+        // ★★★ 自動スクロール処理を削除 ★★★
+        // if (autoScrollToggle.checked && words[currentIndex-1] && words[currentIndex-1].originalLineNumber !== undefined) { 
+        //     scrollToLine(words[currentIndex-1].originalLineNumber);
+        // }
     }
 
     // --- Worker連携 --- 
