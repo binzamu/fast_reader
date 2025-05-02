@@ -19,7 +19,10 @@
                 <label for="chunkSize">表示文字数(目安)</label>
                 <input type="number" id="duration" value="300" min="50" max="2000" step="10" class="control-input">
                 <label for="duration">表示時間(ms)</label>
-                <button id="startButton">開始</button>
+                <!-- 解析ボタンを追加 -->
+                <button id="analyzeButton">解析</button>
+                <!-- 開始ボタンは初期状態で無効化 -->
+                <button id="startButton" disabled>開始</button>
                 <!-- ファイル入力ボタンを追加 -->
                 <input type="file" id="fileInput" accept=".txt, text/plain" style="display: none;">
                 <label for="fileInput" class="file-button">ファイル読込</label>

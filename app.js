@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chunkSizeInput = document.getElementById('chunkSize');
     const durationInput = document.getElementById('duration');
     const startButton = document.getElementById('startButton');
+    const analyzeButton = document.getElementById('analyzeButton'); // 解析ボタンの参照を追加
     const wordDisplay = document.getElementById('wordDisplay');
     const errorMessage = document.getElementById('errorMessage');
     const statusMessage = document.getElementById('statusMessage'); // ステータス要素
@@ -60,6 +61,9 @@ document.addEventListener('DOMContentLoaded', () => {
         analysisComplete = false;
         hideStatus();
         hideError();
+        startButton.disabled = true; // ★★★ 結果クリア時は開始ボタンを無効化 ★★★
+        startButton.textContent = '開始';
+        if (intervalId) stopDisplay(); // 表示中なら停止も行う
     }
 
     // 元の文章を行ごとに表示する関数
@@ -130,9 +134,9 @@ document.addEventListener('DOMContentLoaded', () => {
             textInput.value = fileContent; // テキストエリアに内容を設定
             console.log('ファイルの内容を読み込みました。');
             hideError(); // エラーがあれば消す
-            clearResults(); // 既存の解析結果などをクリア
-            // 必要に応じて、自動で解析を開始するなどの処理をここに追加できます
-            // 例: startButton.click(); // 開始ボタンを押すなど
+            clearResults(); // 既存の解析結果などをクリア (ここでも開始ボタンが無効化される)
+            // ★★★ 自動で解析は開始しない ★★★
+            // 例: analyzeButton.click(); // 必要なら解析ボタンを押すなど
         };
 
         reader.onerror = (e) => {
@@ -324,61 +328,56 @@ document.addEventListener('DOMContentLoaded', () => {
          }
     }
 
-    // 開始ボタンのクリックイベント
+    // ★★★ 開始ボタンの処理: RSVPの開始/停止のみ ★★★
     startButton.addEventListener('click', () => {
-        console.log('開始ボタンがクリックされました');
-        hideError();
-
-        if (intervalId) { 
+        if (intervalId) {
+            // 停止処理
             stopDisplay();
-            return;
-        }
-        
-        if (analysisInProgress) {
-            showStatus('現在解析中です...');
-            return;
-        }
-        
-        if (analysisComplete) {
-            console.log('解析済みテキストの表示を開始/再開します。');
-             // クリックで開始位置が変更されている可能性があるので、
-             // stopDisplayでハイライト解除した後に再度ハイライトする (またはクリック機能を削除)
-             // 現状はクリック機能を一旦コメントアウトするため、単純に開始する
-              if (currentIndex >= words.length) {
-                 currentIndex = 0; // 末尾まで行ってたら最初から
-                  if (currentHighlightedLineElement) { // クリック選択が残っていたら消す
-                      currentHighlightedLineElement.classList.remove('selected-line');
-                      currentHighlightedLineElement = null;
-                  }
-             }
-            startRsvpDisplay(); 
         } else {
-             console.log('新規解析を開始します。');
-             const text = textInput.value.trim();
-             const targetChunkSize = parseInt(chunkSizeInput.value);
-             
-             if (!text) {
-                 showError('テキストを入力してください');
-                 return;
-             }
-              if (isNaN(targetChunkSize) || targetChunkSize < 1 || targetChunkSize > 30) {
-                  showError('表示文字数は1から30の間で設定してください');
-                  return;
-              }
-               if (!worker) { 
-                  showError('バックグラウンド処理が利用できません。');
-                  return;
-              }
- 
-             clearResults(); 
-             analysisInProgress = true;
-             analysisComplete = false;
-             currentIndex = 0; 
-             showStatus('形態素解析を開始しました... (0%)');
-             startButton.textContent = '解析中'; 
-             worker.postMessage({ text, targetChunkSize }); 
-             console.log('Workerにテキストを送信しました。完了待ち...');
+            // 開始処理 (解析済みの場合のみ)
+            if (analysisComplete && words.length > 0) {
+                 startRsvpDisplay();
+            } else {
+                console.log('表示を開始できません。先に「解析」を実行してください。');
+                showError('表示を開始できません。先に「解析」を実行してください。');
+            }
         }
+    });
+
+    // ★★★ 解析ボタンの処理: Workerへテキスト送信 ★★★
+    analyzeButton.addEventListener('click', () => {
+        console.log('解析ボタンがクリックされました');
+        const textToAnalyze = textInput.value.trim();
+        const targetChunkSize = parseInt(chunkSizeInput.value);
+
+        if (!textToAnalyze) {
+            showError('テキストが入力されていません。');
+            return;
+        }
+        if (isNaN(targetChunkSize) || targetChunkSize <= 0) {
+             showError('表示文字数は1以上に設定してください');
+            return;
+        }
+        if (!worker) {
+             showError('形態素解析エンジンが準備できていません。');
+            return;
+        }
+        if (analysisInProgress) {
+            console.log('現在解析中です。');
+            return; // 解析中は実行しない
+        }
+
+        // 前回の結果をクリアし、解析開始状態に
+        clearResults();
+        analysisInProgress = true;
+        analysisComplete = false;
+        startButton.disabled = true; // 解析中は開始不可
+        showStatus('形態素解析を開始します...');
+        hideError(); // 古いエラーは消す
+
+        // Workerにテキストと設定を送信
+        console.log('Workerにテキストを送信します...');
+        worker.postMessage({ text: textToAnalyze, targetChunkSize: targetChunkSize });
     });
 
     // --- Workerの初期化 --- 
@@ -397,6 +396,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         case 'initialized':
                             console.log('Workerから初期化完了通知');
                             hideStatus(); 
+                            // ★★★ 初期化完了時は解析ボタンを有効にする（必要なら）★★★
+                            // analyzeButton.disabled = false; 
                             break;
                         case 'progress':
                             if (total > 0 && analysisInProgress) {
@@ -414,7 +415,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             hideStatus();
                             // ★★★ 元のテキスト表示関数を呼び出すように変更 ★★★
                             displayOriginalTextWithTokens(originalTokens); 
-                            startButton.textContent = '開始'; 
+                            // ★★★ 開始ボタンを有効化 ★★★
+                            startButton.disabled = false;
+                            startButton.textContent = '開始'; // テキストもリセット
                             console.log('解析が完了し、開始ボタンで表示を開始できます。');
                             break;
                         case 'error':
@@ -423,7 +426,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             analysisInProgress = false;
                             analysisComplete = false; // エラー時は完了としない
                             hideStatus();
-                            startButton.textContent = '開始'; // 開始ボタンを元に戻す
+                            // ★★★ 開始ボタンは無効のまま ★★★
+                            startButton.disabled = true;
+                            startButton.textContent = '開始'; // ボタンテキストは戻す
                             if (intervalId) stopDisplay();
                             break;
                         default:
@@ -437,6 +442,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     analysisInProgress = false;
                     analysisComplete = false;
                     hideStatus();
+                    // ★★★ 開始ボタンは無効のまま ★★★
+                    startButton.disabled = true;
                     startButton.textContent = '開始';
                      if (intervalId) stopDisplay();
                 };
