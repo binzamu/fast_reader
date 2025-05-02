@@ -15,6 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const autoScrollToggle = document.getElementById('autoScrollToggle'); // 自動スクロールのトグル
     const toggleOriginalTextDisplay = document.getElementById('toggleOriginalTextDisplay'); // 元の文章表示トグル
     const fileInput = document.getElementById('fileInput'); // ファイル入力要素を追加
+    const bookmarkButton = document.getElementById('bookmarkButton'); // しおり保存ボタン
+    const bookmarkList = document.getElementById('bookmarkList'); // しおりリスト
     
     let words = []; // { chunk: string, originalLineNumber: number } の配列
     let originalTokens = []; // 全ての解析済みトークンを格納 (行番号付き)
@@ -26,6 +28,191 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentClickedWordSpan = null; // クリックされた単語のspanを保持
 
     let worker = null; // Workerインスタンス
+    let dbPromise = null; // IndexedDB の初期化 Promise
+
+    // ============================================================
+    // IndexedDB しおり機能
+    // ============================================================
+    const DB_NAME = 'rsvpAppDB';
+    const STORE_NAME = 'bookmarks';
+
+    function initDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, 3);
+
+            request.onerror = (event) => {
+                console.error('IndexedDB のオープンに失敗しました:', event.target.error);
+                reject('IndexedDB error: ' + event.target.errorCode);
+            };
+
+            request.onsuccess = (event) => {
+                db = event.target.result;
+                console.log('IndexedDB のオープンに成功しました');
+                resolve(db);
+            };
+
+            request.onupgradeneeded = (event) => {
+                db = event.target.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    const objectStore = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                    objectStore.createIndex('title', 'title', { unique: false }); // タイトルで検索できるようにインデックス作成
+                    objectStore.createIndex('timestamp', 'timestamp', { unique: false }); // 保存日時でソートできるようにインデックス作成
+                    console.log('オブジェクトストアを作成しました:', STORE_NAME);
+                }
+            };
+        });
+    }
+
+    function addBookmark(text, wordIndex, title = '') {
+        return new Promise(async (resolve, reject) => {
+            if (!dbPromise) {
+                 reject('データベース初期化プロミスが存在しません');
+                 return;
+            }
+            try {
+                await dbPromise; // DB初期化完了を待つ
+            } catch (error) {
+                 reject('データベース初期化待機中にエラー: ' + error);
+                 return;
+            }
+            if (!db) {
+                reject('データベースが初期化されていません');
+                return;
+            }
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const timestamp = new Date().getTime();
+            // タイトルが空の場合、テキストの最初の部分を使用
+            const bookmarkTitle = title || text.substring(0, 30) + (text.length > 30 ? '...' : '');
+
+            const bookmark = {
+                title: bookmarkTitle,
+                text: text,
+                wordIndex: wordIndex,
+                timestamp: timestamp
+            };
+
+            const request = store.add(bookmark);
+
+            request.onsuccess = (event) => {
+                console.log('しおりを追加しました:', event.target.result);
+                resolve(event.target.result); // 追加されたアイテムのIDを返す
+            };
+
+            request.onerror = (event) => {
+                console.error('しおりの追加に失敗しました:', event.target.error);
+                reject('しおりの追加エラー: ' + event.target.error);
+            };
+        });
+    }
+
+    function getAllBookmarks() {
+        return new Promise(async (resolve, reject) => {
+            if (!dbPromise) {
+                 reject('データベース初期化プロミスが存在しません');
+                 return;
+            }
+             try {
+                await dbPromise; // DB初期化完了を待つ
+            } catch (error) {
+                 reject('データベース初期化待機中にエラー: ' + error);
+                 return;
+            }
+            if (!db) {
+                reject('データベースが初期化されていません');
+                return;
+            }
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const index = store.index('timestamp'); // 保存日時でソート
+            const request = index.getAll(); // 新しい順に取得したい場合は direction: 'prev' が必要かも
+
+            request.onsuccess = (event) => {
+                // console.log('すべてのしおりを取得しました:', event.target.result);
+                // 新しい順にソートする場合
+                const bookmarks = event.target.result.sort((a, b) => b.timestamp - a.timestamp);
+                resolve(bookmarks);
+            };
+
+            request.onerror = (event) => {
+                console.error('しおりの取得に失敗しました:', event.target.error);
+                reject('しおりの取得エラー: ' + event.target.error);
+            };
+        });
+    }
+
+    function getBookmark(id) {
+        return new Promise(async (resolve, reject) => {
+             if (!dbPromise) {
+                 reject('データベース初期化プロミスが存在しません');
+                 return;
+            }
+             try {
+                await dbPromise; // DB初期化完了を待つ
+            } catch (error) {
+                 reject('データベース初期化待機中にエラー: ' + error);
+                 return;
+            }
+             if (!db) {
+                reject('データベースが初期化されていません');
+                return;
+            }
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.get(id);
+
+            request.onsuccess = (event) => {
+                // console.log('しおりを取得しました:', event.target.result);
+                resolve(event.target.result);
+            };
+
+            request.onerror = (event) => {
+                console.error('しおりの取得に失敗しました:', event.target.error);
+                reject('しおりの取得エラー: ' + event.target.error);
+            };
+        });
+    }
+
+    function deleteBookmark(id) {
+        return new Promise(async (resolve, reject) => {
+             if (!dbPromise) {
+                 reject('データベース初期化プロミスが存在しません');
+                 return;
+            }
+            try {
+                await dbPromise; // DB初期化完了を待つ
+            } catch (error) {
+                 reject('データベース初期化待機中にエラー: ' + error);
+                 return;
+            }
+             if (!db) {
+                reject('データベースが初期化されていません');
+                return;
+            }
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.delete(id);
+
+            request.onsuccess = () => {
+                console.log('しおりを削除しました:', id);
+                resolve();
+            };
+
+            request.onerror = (event) => {
+                console.error('しおりの削除に失敗しました:', event.target.error);
+                reject('しおりの削除エラー: ' + event.target.error);
+            };
+        });
+    }
+
+    // アプリケーション初期化時にDBを初期化
+    dbPromise = initDB();
+    dbPromise.then(() => {
+        console.log('データベースの準備完了');
+        displayBookmarks(); // 起動時にリスト表示
+    }).catch(error => {
+        showError('データベースの初期化に失敗しました: ' + error);
+    });
 
     // エラーメッセージを表示する関数
     function showError(message) {
@@ -62,6 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         hideStatus();
         hideError();
         startButton.disabled = true; // ★★★ 結果クリア時は開始ボタンを無効化 ★★★
+        bookmarkButton.disabled = true; // ★★★ しおり保存ボタンも無効化 ★★★
         startButton.textContent = '開始';
         if (intervalId) stopDisplay(); // 表示中なら停止も行う
     }
@@ -418,7 +606,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             // ★★★ 開始ボタンを有効化 ★★★
                             startButton.disabled = false;
                             startButton.textContent = '開始'; // テキストもリセット
-                            console.log('解析が完了し、開始ボタンで表示を開始できます。');
+                            bookmarkButton.disabled = false; // ★★★ ここでしおりボタンを有効化 ★★★
+                            console.log('解析が完了し、開始ボタンで表示を開始できます。しおり保存も可能です。');
                             break;
                         case 'error':
                             console.error('Worker Error:', message);
@@ -428,8 +617,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             hideStatus();
                             // ★★★ 開始ボタンは無効のまま ★★★
                             startButton.disabled = true;
-                            startButton.textContent = '開始'; // ボタンテキストは戻す
-                            if (intervalId) stopDisplay();
+                            startButton.textContent = '開始';
+                             if (intervalId) stopDisplay();
                             break;
                         default:
                             console.warn('Workerから未知のメッセージタイプ:', type);
@@ -490,6 +679,10 @@ document.addEventListener('DOMContentLoaded', () => {
         intervalId = setInterval(displayNextWord, interval);
         console.log('表示を開始/再開しました');
         displayNextWord(); 
+        // ★★★ 開始時に現在位置へスクロール ★★★
+        if (autoScrollToggle.checked && words[currentIndex-1] && words[currentIndex-1].originalLineNumber !== undefined) { // displayNextWordが呼ばれた後なので index-1 を見る
+            scrollToLine(words[currentIndex-1].originalLineNumber);
+        }
     }
 
     // --- Worker連携 --- 
@@ -549,4 +742,168 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn(`Could not find word chunk for token index: ${clickedTokenIndex}`);
         }
     });
+
+    // しおりリストを表示/更新する関数
+    async function displayBookmarks() {
+        try {
+            const bookmarks = await getAllBookmarks();
+            bookmarkList.innerHTML = ''; // リストをクリア
+            if (bookmarks.length === 0) {
+                const li = document.createElement('li');
+                li.textContent = '保存されているしおりはありません。';
+                bookmarkList.appendChild(li);
+                return;
+            }
+
+            bookmarks.forEach(bookmark => {
+                const li = document.createElement('li');
+                const loadButton = document.createElement('button');
+                const deleteButton = document.createElement('button');
+                const titleSpan = document.createElement('span');
+
+                titleSpan.textContent = `${bookmark.title} (${new Date(bookmark.timestamp).toLocaleString()})`;
+                titleSpan.style.cursor = 'pointer';
+                titleSpan.title = 'クリックして読み込む';
+
+                loadButton.textContent = '読込';
+                loadButton.dataset.bookmarkId = bookmark.id;
+                loadButton.classList.add('bookmark-load-button');
+
+                deleteButton.textContent = '削除';
+                deleteButton.dataset.bookmarkId = bookmark.id;
+                deleteButton.classList.add('bookmark-delete-button');
+
+                // 読込ボタンのイベントリスナー
+                loadButton.addEventListener('click', async (event) => {
+                    const id = parseInt(event.target.dataset.bookmarkId);
+                    await loadBookmark(id);
+                });
+
+                // タイトルクリックでも読み込めるように
+                titleSpan.addEventListener('click', async (event) => {
+                    const button = li.querySelector('.bookmark-load-button'); // 対応するボタンを探す
+                    if(button) {
+                        const id = parseInt(button.dataset.bookmarkId);
+                        await loadBookmark(id);
+                    }
+                });
+
+                // 削除ボタンのイベントリスナー
+                deleteButton.addEventListener('click', async (event) => {
+                    const id = parseInt(event.target.dataset.bookmarkId);
+                    if (confirm('このしおりを削除しますか？')) {
+                        try {
+                            await deleteBookmark(id);
+                            await displayBookmarks(); // リストを再表示
+                        } catch (error) {
+                            showError('しおりの削除に失敗しました: ' + error);
+                        }
+                    }
+                });
+
+                li.appendChild(titleSpan);
+                li.appendChild(loadButton);
+                li.appendChild(deleteButton);
+                bookmarkList.appendChild(li);
+            });
+        } catch (error) {
+            showError('しおりリストの表示に失敗しました: ' + error);
+            const li = document.createElement('li');
+            li.textContent = 'しおりリストの読み込みに失敗しました。';
+            bookmarkList.appendChild(li);
+        }
+    }
+
+    // しおりを読み込んでRSVPを開始する関数
+    async function loadBookmark(id) {
+        try {
+            const bookmark = await getBookmark(id);
+            if (!bookmark) {
+                showError('しおりが見つかりませんでした。');
+                return;
+            }
+            console.log('しおりを読み込みました:', bookmark);
+            stopDisplay(); // 既存の表示を停止
+            clearResults(); // 表示をクリア
+
+            textInput.value = bookmark.text;
+            // テキストを設定したら解析を実行
+            analyzeButton.click(); // 解析ボタンをクリックして解析を開始
+
+            // 解析完了を待機 (ポーリングまたはPromise/Callbackで改善可能)
+            // ここでは単純なsetTimeoutで待機するが、より堅牢な方法を推奨
+            const checkAnalysisComplete = setInterval(() => {
+                if (analysisComplete) {
+                    clearInterval(checkAnalysisComplete);
+                    bookmarkButton.disabled = false; // しおり読み込み後の解析完了時にも有効化
+                    console.log(`解析完了、しおりの位置 (${bookmark.wordIndex}) から開始します`);
+                    // 正しいチャンクインデックスを見つける (現状は近似値)
+                    const approximateChunkIndex = Math.min(words.length - 1, Math.max(0, bookmark.wordIndex)); 
+                    console.log("デバッグ: words=", words)
+                    console.log("デバッグ: originalTokens=", originalTokens)
+                    console.log("デバッグ: bookmark.wordIndex=", bookmark.wordIndex)
+                    console.log("デバッグ: approximateChunkIndex=", approximateChunkIndex)
+
+                    if (words.length > 0) {
+                        currentIndex = approximateChunkIndex; // 保存された位置に近いチャンクから開始
+                        startButton.disabled = false; // 開始(再開)ボタンを有効化
+                        startButton.textContent = '再開'; // しおりから開始することを示す
+                        console.log('しおりの位置を読み込みました。「再開」ボタンで開始してください。')
+                    } else {
+                         showError('解析後の単語リストが空です。');
+                    }
+                } else if (!analysisInProgress) {
+                     // 解析が完了せず、進行中でもない場合（エラーなど）
+                     clearInterval(checkAnalysisComplete);
+                     showError('テキストの解析に失敗したため、しおりから再開できませんでした。');
+                }
+            }, 100); // 100msごとにチェック
+
+        } catch (error) {
+            showError('しおりの読み込みに失敗しました: ' + error);
+        }
+    }
+
+    // しおり保存ボタンのイベントリスナー
+    bookmarkButton.addEventListener('click', async () => {
+        if (!analysisComplete || words.length === 0) {
+            showError('しおりを保存するテキストが解析されていません。');
+            return;
+        }
+        const currentText = textInput.value;
+        // 現在表示されている単語の *次の* インデックスをしおり位置とするか、
+        // 現在表示されている単語のインデックスとするか。ここでは現在表示中のインデックスを使う
+        const currentWordIndex = Math.max(0, currentIndex -1); // 停止直前のインデックス
+
+        try {
+            // タイトルを入力させる場合はここでプロンプトなどを表示
+            const title = prompt('しおりのタイトルを入力してください（任意）:');
+            await addBookmark(currentText, currentWordIndex, title || '');
+            showStatus('しおりを保存しました。');
+            await displayBookmarks(); // リストを更新
+            setTimeout(hideStatus, 3000); // 3秒後にステータスメッセージを消す
+        } catch (error) {
+            showError('しおりの保存に失敗しました: ' + error);
+        }
+    });
+
+    // 解析ボタンのクリックイベントリスナー内でしおりボタンを有効化
+    analyzeButton.addEventListener('click', async () => {
+        // ... (既存の解析処理)
+        // ...
+        // 解析完了後のボタン有効化ロジックは worker.onmessage に移動したので削除
+        // if (analysisComplete) {
+        //     bookmarkButton.disabled = false; 
+        // } else {
+        //     bookmarkButton.disabled = true; 
+        // }
+        // ... (既存の処理)
+    });
+
+    // テキスト入力エリアの内容が変更されたら解析結果をクリアし、しおりボタンを無効化
+    textInput.addEventListener('input', () => {
+        clearResults(); // 既存の解析結果などをクリア
+        // bookmarkButton.disabled = true; // clearResults内で無効化されるため不要
+    });
+
 }); 

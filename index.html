@@ -23,6 +23,9 @@
                 <button id="analyzeButton">解析</button>
                 <!-- 開始ボタンは初期状態で無効化 -->
                 <button id="startButton" disabled>開始</button>
+                <!-- しおり保存ボタンを追加 -->
+                <button id="bookmarkButton" disabled>しおり保存</button>
+                <!-- /しおり保存ボタン -->
                 <!-- ファイル入力ボタンを追加 -->
                 <input type="file" id="fileInput" accept=".txt, text/plain" style="display: none;">
                 <label for="fileInput" class="file-button">ファイル読込</label>
@@ -46,12 +49,15 @@
             <p id="originalTextContent"></p>
         </div>
         <!-- 形態素解析結果エリア削除 -->
-        <!-- 
-        <div id="analysisResult" class="analysis-result-area">
-            <h2>形態素解析結果</h2>
-            <pre id="analysisOutput"></pre>
-        </div> 
+        <!--
+        <div id="analysisResult" class=\"analysis-result-area\">\n            <h2>形態素解析結果</h2>\n            <pre id=\"analysisOutput\"></pre>\n        </div>
         -->
+        <!-- しおりリスト表示エリア -->
+        <div id="bookmarkListArea" class="bookmark-list-area">
+            <h2>しおり一覧</h2>
+            <ul id="bookmarkList"></ul>
+        </div>
+        <!-- /しおりリスト表示エリア -->
     </div>
     <script src="app.js"></script>
 </body>

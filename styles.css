@@ -221,4 +221,73 @@ button:hover {
     background-color: #d0e0ff; 
     transition: background-color 0.1s ease-out; 
 }
-*/ 
+*/
+
+/* しおりリストエリア */
+.bookmark-list-area {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.bookmark-list-area h2 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+    color: #555;
+}
+
+#bookmarkList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#bookmarkList li {
+    padding: 8px 0;
+    border-bottom: 1px dashed #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#bookmarkList li:last-child {
+    border-bottom: none;
+}
+
+#bookmarkList span {
+    flex-grow: 1;
+    margin-right: 10px;
+    cursor: pointer; /* クリック可能を示す */
+}
+
+#bookmarkList button {
+    padding: 3px 8px;
+    font-size: 0.8em;
+    margin-left: 5px;
+    cursor: pointer;
+}
+
+.bookmark-load-button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 3px;
+}
+
+.bookmark-load-button:hover {
+    background-color: #45a049;
+}
+
+.bookmark-delete-button {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 3px;
+}
+
+.bookmark-delete-button:hover {
+    background-color: #da190b;
+} 
