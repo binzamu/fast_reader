@@ -99,7 +99,11 @@ self.onmessage = function(event) {
 
             // 1. 区切り文字 (、。)
             if (tokenSurface === '、' || tokenSurface === '。') {
-                if (currentChunk) pushCurrentChunk = true;
+                if (currentChunk) {
+                    currentChunk += tokenSurface; // ★ 句読点を追加
+                    currentLength += tokenSurface.length; // ★ 長さも更新
+                    pushCurrentChunk = true;
+                }
                 nextChunkStartLine = -1; // 次は空から始まる
                 nextChunkContent = '';
                 prefixForNextToken = ''; 
