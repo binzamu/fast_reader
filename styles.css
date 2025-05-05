@@ -103,6 +103,11 @@ button:hover {
     font-size: 48px;
     font-weight: bold;
     color: #333;
+    line-height: 1.2; /* 行の高さをフォントサイズの1.2倍に */
+    height: calc(48px * 1.2 * 2); /* 高さを2行分に固定 (フォントサイズ * 行の高さ倍率 * 2) */
+    display: flex; /* 中央揃えのため */
+    align-items: center; /* 垂直方向の中央揃え */
+    justify-content: center; /* 水平方向の中央揃え */
 }
 
 .error-message {
