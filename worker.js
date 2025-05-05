@@ -108,23 +108,8 @@ self.onmessage = function(event) {
                 nextChunkContent = '';
                 prefixForNextToken = ''; 
             }
-            // 2. 終わり括弧 (」) ）
-            else if (tokenSurface === '」' || tokenSurface === '）') {
-                if (currentChunk) {
-                    currentChunk += tokenSurface; 
-                    pushCurrentChunk = true;
-                }
-                nextChunkStartLine = -1;
-                nextChunkContent = '';
-                prefixForNextToken = '';
-            }
-            // 3. 始め括弧 (「) （
-            else if (tokenSurface === '「' || tokenSurface === '（') {
-                if (currentChunk) pushCurrentChunk = true;
-                nextChunkStartLine = -1; // 次のトークンで開始行が決まる
-                nextChunkContent = '';
-                prefixForNextToken = tokenSurface; // 次のトークンにつける
-            }
+            // 2. 終わり括弧 (」) ） -> 通常トークンとして扱うため削除
+            // 3. 始め括弧 (「) （ -> 通常トークンとして扱うため削除
             // 4. 助詞 (直前にチャンクあり)
             else if (tokenPos === '助詞' && currentChunk !== '') {
                 const surfaceWithPrefix = prefixForNextToken + tokenSurface;
