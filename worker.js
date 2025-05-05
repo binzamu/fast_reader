@@ -97,8 +97,8 @@ self.onmessage = function(event) {
 
             // --- 処理 --- 
 
-            // 1. 区切り文字 (、。)
-            if (tokenSurface === '、' || tokenSurface === '。') {
+            // 1. 区切り文字 (。) ※「、」では区切らないように変更
+            if (tokenSurface === '。') {
                 if (currentChunk) {
                     currentChunk += tokenSurface; // ★ 句読点を追加
                     currentLength += tokenSurface.length; // ★ 長さも更新
