@@ -137,13 +137,11 @@ button:hover {
     display: block;
 }
 
-/* 行ハイライト用のスタイルは削除 */
-/*
-#originalTextContent div.selected-line {
-    background-color: #d0e0ff; 
+/* 行ハイライト用のスタイル */
+#originalTextContent div.line.selected-line {
+    background-color: #d0e0ff; /* 薄い青色の背景 */
     transition: background-color 0.1s ease-out; 
 }
-*/
 
 /* 形態素解析結果エリアのスタイル削除 */
 /*
@@ -220,14 +218,6 @@ button:hover {
     transition: background-color 0.1s ease-out;
 }
 
-/* 行ハイライト用のスタイルは削除 */
-/*
-#originalTextContent div.selected-line {
-    background-color: #d0e0ff; 
-    transition: background-color 0.1s ease-out; 
-}
-*/
-
 /* しおりリストエリア */
 .bookmark-list-area {
     margin-top: 20px;
@@ -295,4 +285,36 @@ button:hover {
 
 .bookmark-delete-button:hover {
     background-color: #da190b;
+}
+
+.chunk-navigation {
+    display: flex;
+    justify-content: space-between; /* ボタンを左右に配置 */
+    margin-top: 10px; /* 上の要素との間に少しスペースを空ける */
+}
+
+.chunk-navigation button {
+    padding: 8px 15px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+    color: black; /* 文字色を黒に設定 */
+}
+
+.chunk-navigation button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.chunk-navigation button:hover:not(:disabled) {
+    background-color: #e7e7e7;
+}
+
+.chunk-navigation #prevChunkButton {
+    /* 必要であれば左寄せ用のスタイルを追加 */
+}
+
+.chunk-navigation #nextChunkButton {
+    /* 必要であれば右寄せ用のスタイルを追加 */
 } 

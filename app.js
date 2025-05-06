@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileInput = document.getElementById('fileInput'); // ファイル入力要素を追加
     const bookmarkButton = document.getElementById('bookmarkButton'); // しおり保存ボタン
     const bookmarkList = document.getElementById('bookmarkList'); // しおりリスト
+    const prevChunkButton = document.getElementById('prevChunkButton'); // 前へボタン
+    const nextChunkButton = document.getElementById('nextChunkButton'); // 次へボタン
     
     let words = []; // { chunk: string, originalLineNumber: number } の配列
     let originalTokens = []; // 全ての解析済みトークンを格納 (行番号付き)
@@ -25,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let analysisInProgress = false; 
     let analysisComplete = false; 
     let currentClickedWordSpan = null; // クリックされた単語のspanを保持
+    let isPlaying = false; // 再生状態を管理するフラグを追加
 
     let worker = null; // Workerインスタンス
     let dbPromise = null; // IndexedDB の初期化 Promise
@@ -248,7 +251,9 @@ document.addEventListener('DOMContentLoaded', () => {
         hideStatus();
         hideError();
         startButton.disabled = true; // ★★★ 結果クリア時は開始ボタンを無効化 ★★★
-        bookmarkButton.disabled = true; // ★★★ しおり保存ボタンも無効化 ★★★
+        bookmarkButton.disabled = true; // ★★★ 結果クリア時はしおり保存ボタンを無効化 ★★★
+        prevChunkButton.disabled = true; // ★★★ 結果クリア時は前へボタンを無効化 ★★★
+        nextChunkButton.disabled = true; // ★★★ 結果クリア時は次へボタンを無効化 ★★★
         startButton.textContent = '開始';
         if (intervalId) stopDisplay(); // 表示中なら停止も行う
     }
@@ -266,7 +271,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (token.originalLineNumber !== currentLineNumber) {
                 currentLineNumber = token.originalLineNumber;
                 currentLineDiv = document.createElement('div');
-                currentLineDiv.id = `line-${currentLineNumber}`;
+                currentLineDiv.classList.add('line');
+                currentLineDiv.dataset.lineNumber = currentLineNumber;
                 originalTextContent.appendChild(currentLineDiv);
             }
 
@@ -476,57 +482,121 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 次の単語を表示する関数
+    function updateNavigationButtons() {
+        if (!analysisComplete || words.length === 0) {
+            prevChunkButton.disabled = true;
+            nextChunkButton.disabled = true;
+            return;
+        }
+        prevChunkButton.disabled = currentIndex <= 0;
+        nextChunkButton.disabled = currentIndex >= words.length - 1;
+    }
+
+    // 解析中にステータスを表示する
+    function updateAnalysisStatus(message) {
+        showStatus(message);
+    }
+
     function displayNextWord() {
-        if (currentIndex < words.length) {
-            const currentChunkData = words[currentIndex];
-            console.log('次の単語を表示:', currentIndex, currentChunkData.chunk);
-            wordDisplay.textContent = currentChunkData.chunk;
+        if (!analysisComplete || words.length === 0 || currentIndex >= words.length) {
+            stopDisplay();
+            return;
+        }
+        displayChunk(currentIndex);
+        currentIndex++;
+        // ★★★ setTimeout を使って次の表示をスケジュールする ★★★
+        const duration = parseInt(durationInput.value, 10) || 400;
+        intervalId = setTimeout(displayNextWord, duration);
+    }
 
-            // 次のインデックスへ
-            currentIndex++;
-
-            // 最後まで表示したら停止
-            if (currentIndex >= words.length) {
-                stopDisplay();
-                // wordDisplay.textContent = "完了"; // 完了メッセージは任意
-                 startButton.textContent = '開始'; // 完了したら開始に戻す
-                 currentIndex = 0; // 最初に戻す
-            }
-        } else {
-            stopDisplay(); // インデックスがおかしい場合も停止
-             startButton.textContent = '開始';
+    function stopDisplay() {
+        console.log('stopDisplay called');
+        // ★★★ clearInterval ではなく clearTimeout を使う ★★★
+        clearTimeout(intervalId);
+        intervalId = null;
+        isPlaying = false; // 停止時にフラグを更新
+        startButton.textContent = '開始';
+        // 停止時にナビゲーションボタンの状態を更新
+        updateNavigationButtons();
+        if (analysisComplete && words.length > 0) {
+            startButton.disabled = false; // 解析完了していれば開始ボタンを有効化
         }
     }
 
-    // 表示を停止する関数
-    function stopDisplay() {
-        console.log('表示を停止します');
-        if (intervalId) {
-            clearInterval(intervalId);
-            intervalId = null;
+    function displayChunk(index) {
+        if (index >= 0 && index < words.length) {
+            const wordData = words[index];
+            wordDisplay.textContent = wordData.chunk;
+            highlightLine(wordData.originalLineNumber);
+            updateNavigationButtons(); // チャンク表示時にもボタン状態更新
+        } else {
+            console.warn(`displayChunk: 無効なインデックス ${index}`);
         }
-        startButton.textContent = '開始'; 
-        hideStatus(); 
-         // 停止時にハイライト解除 (任意)
-         if (currentHighlightedLineElement) {
-             currentHighlightedLineElement.classList.remove('selected-line');
-             currentHighlightedLineElement = null;
-         }
+    }
+
+    // 指定された行番号をハイライトする関数
+    function highlightLine(lineNumber) {
+        // console.log(`highlightLine called with lineNumber: ${lineNumber}`); // デバッグ用
+        // 有効な行番号かチェック
+        if (typeof lineNumber !== 'number' || lineNumber < 0) {
+            // console.warn('無効な行番号です:', lineNumber);
+            return;
+        }
+
+        // 以前のハイライトを解除
+        if (currentHighlightedLineElement) {
+            currentHighlightedLineElement.classList.remove('selected-line');
+            // console.log('以前のハイライトを解除:', currentHighlightedLineElement);
+            currentHighlightedLineElement = null; // 解除したらnullに戻す
+        }
+
+        // 新しい行要素を取得 (data-line-number属性を持つdivを探す)
+        // displayOriginalTextWithTokens関数で各行にdiv.line[data-line-number]を設定している前提
+        const lineElement = originalTextContent.querySelector(`div.line[data-line-number="${lineNumber}"]`);
+        // console.log('検索結果の要素:', lineElement);
+
+        if (lineElement) {
+            lineElement.classList.add('selected-line');
+            currentHighlightedLineElement = lineElement; // ハイライト中の要素を更新
+            // console.log('新しい行をハイライト:', currentHighlightedLineElement);
+
+            // ハイライトした行が画面内に表示されるようにスクロール
+            // scrollIntoViewIfNeeded は非標準のため、 scrollIntoView を使用
+            const rect = lineElement.getBoundingClientRect();
+            const containerRect = originalTextContent.getBoundingClientRect();
+            
+            // 要素がコンテナ内に完全に表示されているかチェック
+            const isVisible = 
+                rect.top >= containerRect.top &&
+                rect.left >= containerRect.left &&
+                rect.bottom <= containerRect.bottom &&
+                rect.right <= containerRect.right;
+
+            if (!isVisible) {
+                // console.log('要素が画面外のためスクロールします');
+                 // スクロールオプションを設定
+                 const scrollOptions = {
+                    behavior: 'smooth', // スムーズスクロール
+                    block: 'nearest',   // 要素が表示領域に最も近くなるようにスクロール
+                    inline: 'nearest'
+                };
+                lineElement.scrollIntoView(scrollOptions);
+            }
+        } else {
+            // console.warn(`行番号 ${lineNumber} に対応する要素が見つかりませんでした。`);
+            currentHighlightedLineElement = null; // 対応する要素がなければnullに
+        }
     }
 
     // ★★★ 開始ボタンの処理: RSVPの開始/停止のみ ★★★
     startButton.addEventListener('click', () => {
         if (intervalId) {
-            // 停止処理
             stopDisplay();
         } else {
-            // 開始処理 (解析済みの場合のみ)
             if (analysisComplete && words.length > 0) {
-                 startRsvpDisplay();
-            } else {
-                console.log('表示を開始できません。先に「解析」を実行してください。');
-                showError('表示を開始できません。先に「解析」を実行してください。');
+                // 再開の場合は現在のインデックスから、そうでなければ最初から
+                // 停止時にインデックスが進まないように修正済みのため、常に現在のcurrentIndexから開始でOK
+                startRsvpDisplay(currentIndex); 
             }
         }
     });
@@ -607,6 +677,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             startButton.textContent = '開始'; // テキストもリセット
                             bookmarkButton.disabled = false; // ★★★ ここでしおりボタンを有効化 ★★★
                             console.log('解析が完了し、開始ボタンで表示を開始できます。しおり保存も可能です。');
+                            // 解析完了後にボタンの状態を更新
+                            startButton.disabled = false;
+                            bookmarkButton.disabled = false;
+                            updateNavigationButtons(); // 解析完了時にナビゲーションボタンも更新
                             break;
                         case 'error':
                             console.error('Worker Error:', message);
@@ -650,7 +724,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeWorker(); // アプリケーション読み込み時にWorkerを準備
 
     // --- RSVP表示関連 --- 
-    function startRsvpDisplay() {
+    function startRsvpDisplay(startIndex) {
         if (intervalId) return; 
         if (!analysisComplete || words.length === 0) { // currentIndexのチェックは削除
              console.log('表示を開始できません。解析未完了またはチャンクがありません。');
@@ -658,26 +732,29 @@ document.addEventListener('DOMContentLoaded', () => {
              return; 
         }
         // currentIndex が範囲外なら0にリセット
-        if (currentIndex < 0 || currentIndex >= words.length) {
-            currentIndex = 0;
+        if (startIndex < 0 || startIndex >= words.length) {
+            startIndex = 0;
         }
+        currentIndex = startIndex; // ★★★ 開始インデックスを設定 ★★★
 
         const displayDuration = parseInt(durationInput.value);
         if (isNaN(displayDuration) || displayDuration < 50 || displayDuration > 2000) {
             showError('表示時間は50から2000msの間で設定してください');
-             if (intervalId) clearInterval(intervalId); 
-             intervalId = null;
-             startButton.textContent = '開始';
+             // if (intervalId) clearTimeout(intervalId); // stopDisplayでクリアされるはず
+             // intervalId = null;
+             // startButton.textContent = '開始';
+             stopDisplay(); // エラー時は停止状態にする
             return;
         }
         
         hideStatus(); 
-        const interval = displayDuration;
-        console.log('表示間隔:', interval, 'ms');
+        // const interval = displayDuration; // setTimeout で使うので不要
+        // console.log('表示間隔:', interval, 'ms'); // setTimeout で使うので不要
         startButton.textContent = '停止';
-        intervalId = setInterval(displayNextWord, interval);
+        // intervalId = setInterval(displayNextWord, interval); // ★★★ setInterval は使わない ★★★
         console.log('表示を開始/再開しました');
-        displayNextWord(); 
+        isPlaying = true; // ★★★ 再生フラグを立てる ★★★
+        displayNextWord(); // 最初の単語表示を開始
         // ★★★ 自動スクロール処理を削除 ★★★
         // if (autoScrollToggle.checked && words[currentIndex-1] && words[currentIndex-1].originalLineNumber !== undefined) { 
         //     scrollToLine(words[currentIndex-1].originalLineNumber);
@@ -903,6 +980,45 @@ document.addEventListener('DOMContentLoaded', () => {
     textInput.addEventListener('input', () => {
         clearResults(); // 既存の解析結果などをクリア
         // bookmarkButton.disabled = true; // clearResults内で無効化されるため不要
+    });
+
+    // チャンクナビゲーションボタンのイベントリスナー
+    prevChunkButton.addEventListener('click', () => {
+        if (!isPlaying && currentIndex > 0) {
+            currentIndex--;
+            displayChunk(currentIndex);
+        }
+    });
+
+    nextChunkButton.addEventListener('click', () => {
+        if (!isPlaying && currentIndex < words.length - 1) {
+            currentIndex++;
+            displayChunk(currentIndex);
+        }
+    });
+
+    // キーボードイベントリスナー（矢印キー）
+    document.addEventListener('keydown', (event) => {
+        // inputやtextareaにフォーカスがある場合は何もしない
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+            return;
+        }
+
+        if (!isPlaying && analysisComplete && words.length > 0) {
+            if (event.key === 'ArrowLeft') {
+                if (currentIndex > 0) {
+                    currentIndex--;
+                    displayChunk(currentIndex);
+                    event.preventDefault(); // デフォルトのスクロールなどを防ぐ
+                }
+            } else if (event.key === 'ArrowRight') {
+                if (currentIndex < words.length - 1) {
+                    currentIndex++;
+                    displayChunk(currentIndex);
+                    event.preventDefault(); // デフォルトのスクロールなどを防ぐ
+                }
+            }
+        }
     });
 
 }); 
