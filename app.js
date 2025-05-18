@@ -682,6 +682,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             startButton.disabled = false;
                             bookmarkButton.disabled = false;
                             updateNavigationButtons(); // 解析完了時にナビゲーションボタンも更新
+                            if (words.length > 0) {
+                                displayChunk(0); // 最初のチャンクを wordDisplay に表示し、行もハイライト
+                            }
                             break;
                         case 'error':
                             console.error('Worker Error:', message);
@@ -926,6 +929,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         startButton.disabled = false; // 開始(再開)ボタンを有効化
                         startButton.textContent = '再開'; // しおりから開始することを示す
                         console.log('しおりの位置を読み込みました。「再開」ボタンで開始してください。')
+                        displayChunk(currentIndex); // ブックマーク位置のチャンクを表示し、対応する行をハイライト
                     } else {
                          showError('解析後の単語リストが空です。');
                     }
