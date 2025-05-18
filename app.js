@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let worker = null; // Workerインスタンス
     let dbPromise = null; // IndexedDB の初期化 Promise
+    let isBookmarkLoadingContext = false; // ★ 追加: ブックマーク読み込み中かを示すフラグ
 
     // ============================================================
     // IndexedDB しおり機能
@@ -602,22 +603,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ★★★ 解析ボタンの処理: Workerへテキスト送信 ★★★
-    analyzeButton.addEventListener('click', () => {
+    // ★★★ 解析ボタンの処理: analyzeText 関数を呼び出すように変更 ★★★
+    analyzeButton.addEventListener('click', async () => { // async に変更
         console.log('解析ボタンがクリックされました');
         const textToAnalyze = textInput.value.trim();
         const targetChunkSize = parseInt(chunkSizeInput.value);
+        await analyzeText(textToAnalyze, targetChunkSize, false); // ★ 通常の解析として呼び出し
+    });
 
+    // --- Workerの初期化 --- 
+    async function analyzeText(textToAnalyze, targetChunkSize, isFromBookmark = false) {
+        console.log(`analyzeText called. isFromBookmark: ${isFromBookmark}`);
         if (!textToAnalyze) {
             showError('テキストが入力されていません。');
             return;
         }
         if (isNaN(targetChunkSize) || targetChunkSize <= 0) {
-             showError('表示文字数は1以上に設定してください');
+            showError('表示文字数は1以上に設定してください');
             return;
         }
         if (!worker) {
-             showError('形態素解析エンジンが準備できていません。');
+            showError('形態素解析エンジンが準備できていません。');
             return;
         }
         if (analysisInProgress) {
@@ -629,6 +635,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearResults();
         analysisInProgress = true;
         analysisComplete = false;
+        isBookmarkLoadingContext = isFromBookmark; // ★ ブックマーク読み込みコンテキストを設定
         startButton.disabled = true; // 解析中は開始不可
         showStatus('形態素解析を開始します...');
         hideError(); // 古いエラーは消す
@@ -636,9 +643,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Workerにテキストと設定を送信
         console.log('Workerにテキストを送信します...');
         worker.postMessage({ text: textToAnalyze, targetChunkSize: targetChunkSize });
-    });
+    }
 
-    // --- Workerの初期化 --- 
     function initializeWorker() {
         if (window.Worker) {
             try {
@@ -677,14 +683,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             startButton.disabled = false;
                             startButton.textContent = '開始'; // テキストもリセット
                             bookmarkButton.disabled = false; // ★★★ ここでしおりボタンを有効化 ★★★
-                            console.log('解析が完了し、開始ボタンで表示を開始できます。しおり保存も可能です。');
+                            // console.log('解析が完了し、開始ボタンで表示を開始できます。しおり保存も可能です。'); // メッセージ重複のためコメントアウト
                             // 解析完了後にボタンの状態を更新
-                            startButton.disabled = false;
-                            bookmarkButton.disabled = false;
+                            // startButton.disabled = false; // 上で設定済み
+                            // bookmarkButton.disabled = false; // 上で設定済み
                             updateNavigationButtons(); // 解析完了時にナビゲーションボタンも更新
-                            if (words.length > 0) {
-                                displayChunk(0); // 最初のチャンクを wordDisplay に表示し、行もハイライト
+                            // ★ 変更箇所: isBookmarkLoadingContext を確認
+                            if (words.length > 0 && !isBookmarkLoadingContext) {
+                                displayChunk(0); // 通常解析時のみ最初のチャンクを表示
                             }
+                            // isBookmarkLoadingContext は loadBookmark 側で false に戻される
                             break;
                         case 'error':
                             console.error('Worker Error:', message);
@@ -907,17 +915,17 @@ document.addEventListener('DOMContentLoaded', () => {
             clearResults(); // 表示をクリア
 
             textInput.value = bookmark.text;
-            // テキストを設定したら解析を実行
-            analyzeButton.click(); // 解析ボタンをクリックして解析を開始
+            const targetChunkSize = parseInt(chunkSizeInput.value); // chunkSizeInputから現在の値を取得
+            await analyzeText(bookmark.text, targetChunkSize, true); // ★ ブックマーク読み込みとして解析開始
 
-            // 解析完了を待機 (ポーリングまたはPromise/Callbackで改善可能)
-            // ここでは単純なsetTimeoutで待機するが、より堅牢な方法を推奨
-            const checkAnalysisComplete = setInterval(() => {
+            // 解析完了を待機
+            const checkAnalysisComplete = setInterval(async () => { // async に変更
                 if (analysisComplete) {
                     clearInterval(checkAnalysisComplete);
+                    isBookmarkLoadingContext = false; // ★ コンテキストをリセット
                     bookmarkButton.disabled = false; // しおり読み込み後の解析完了時にも有効化
                     console.log(`解析完了、しおりの位置 (${bookmark.wordIndex}) から開始します`);
-                    // 正しいチャンクインデックスを見つける (現状は近似値)
+                    // 正しいチャンクインデックスを見つける
                     const approximateChunkIndex = Math.min(words.length - 1, Math.max(0, bookmark.wordIndex)); 
                     console.log("デバッグ: words=", words)
                     console.log("デバッグ: originalTokens=", originalTokens)
@@ -936,12 +944,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (!analysisInProgress) {
                      // 解析が完了せず、進行中でもない場合（エラーなど）
                      clearInterval(checkAnalysisComplete);
+                     isBookmarkLoadingContext = false; // ★ コンテキストをリセット (エラー時)
                      showError('テキストの解析に失敗したため、しおりから再開できませんでした。');
                 }
             }, 100); // 100msごとにチェック
 
         } catch (error) {
             showError('しおりの読み込みに失敗しました: ' + error);
+            isBookmarkLoadingContext = false; // ★ コンテキストをリセット (例外キャッチ時)
         }
     }
 
@@ -966,19 +976,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             showError('しおりの保存に失敗しました: ' + error);
         }
-    });
-
-    // 解析ボタンのクリックイベントリスナー内でしおりボタンを有効化
-    analyzeButton.addEventListener('click', async () => {
-        // ... (既存の解析処理)
-        // ...
-        // 解析完了後のボタン有効化ロジックは worker.onmessage に移動したので削除
-        // if (analysisComplete) {
-        //     bookmarkButton.disabled = false; 
-        // } else {
-        //     bookmarkButton.disabled = true; 
-        // }
-        // ... (既存の処理)
     });
 
     // テキスト入力エリアの内容が変更されたら解析結果をクリアし、しおりボタンを無効化
