@@ -317,4 +317,135 @@ button:hover {
 
 .chunk-navigation #nextChunkButton {
     /* 必要であれば右寄せ用のスタイルを追加 */
+}
+
+/* Night Mode Styles */
+body.night-mode {
+    background-color: #121212;
+    color: #e0e0e0;
+}
+
+.night-mode .container {
+    background-color: #1e1e1e;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.night-mode h1 {
+    color: #e0e0e0;
+}
+
+.night-mode textarea {
+    background-color: #2c2c2c;
+    color: #e0e0e0;
+    border: 1px solid #444;
+}
+
+.night-mode .control-input {
+    background-color: #2c2c2c;
+    color: #e0e0e0;
+    border: 1px solid #444;
+}
+
+.night-mode #wpm {
+    background-color: #2c2c2c;
+    color: #e0e0e0;
+    border: 1px solid #444;
+}
+
+.night-mode button {
+    background-color: #333;
+    color: #e0e0e0;
+    border: 1px solid #555;
+}
+
+.night-mode button:hover {
+    background-color: #444;
+}
+
+.night-mode .file-button {
+    background-color: #004c8c; /* 少し暗めの青 */
+}
+
+.night-mode .file-button:hover {
+    background-color: #003663;
+}
+
+.night-mode .display-area {
+    background-color: #1e1e1e;
+}
+
+.night-mode #wordDisplay {
+    color: #e0e0e0;
+}
+
+.night-mode .error-message {
+    background-color: #420c09;
+    color: #ffcdd2;
+}
+
+.night-mode .status-message {
+    background-color: #092e42;
+    color: #b3e5fc;
+}
+
+.night-mode #originalTextContent div.line.selected-line {
+    background-color: #304066;
+}
+
+.night-mode .original-text-area {
+    background-color: #2c2c2c;
+    border: 1px solid #444;
+}
+
+.night-mode .original-text-area h2 {
+    color: #ccc;
+}
+
+.night-mode #originalTextContent {
+    border: 1px solid #444;
+    background-color: #1e1e1e;
+}
+
+.night-mode #originalTextContent span.clickable-word:hover {
+    background-color: #3a3a5c;
+}
+
+.night-mode #originalTextContent span.clicked-word {
+    background-color: #5a70aa;
+}
+
+.night-mode .bookmark-list-area {
+    background-color: #2c2c2c;
+    border: 1px solid #444;
+}
+
+.night-mode .bookmark-list-area h2 {
+    color: #ccc;
+}
+
+.night-mode #bookmarkList li {
+    border-bottom: 1px dashed #444;
+}
+
+.night-mode #bookmarkList button {
+    background-color: #444;
+    color: #e0e0e0;
+    border: 1px solid #666;
+}
+.night-mode #bookmarkList button:hover {
+    background-color: #555;
+}
+
+.night-mode .chunk-navigation button {
+    background-color: #333;
+    color: #e0e0e0;
+    border: 1px solid #555;
+}
+.night-mode .chunk-navigation button:disabled {
+    background-color: #222;
+    color: #777;
+    border-color: #444;
+}
+.night-mode .chunk-navigation button:hover:not(:disabled) {
+    background-color: #444;
 } 

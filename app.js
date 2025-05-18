@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const bookmarkList = document.getElementById('bookmarkList'); // しおりリスト
     const prevChunkButton = document.getElementById('prevChunkButton'); // 前へボタン
     const nextChunkButton = document.getElementById('nextChunkButton'); // 次へボタン
+    const toggleNightModeButton = document.getElementById('toggleNightModeButton');
     
     let words = []; // { chunk: string, originalLineNumber: number } の配列
     let originalTokens = []; // 全ての解析済みトークンを格納 (行番号付き)
@@ -1020,5 +1021,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+
+    // Night Mode Logic
+    function applyNightMode(isNight) {
+        if (isNight) {
+            document.body.classList.add('night-mode');
+        } else {
+            document.body.classList.remove('night-mode');
+        }
+    }
+
+    function toggleNightMode() {
+        const isNight = document.body.classList.toggle('night-mode');
+        localStorage.setItem('nightMode', isNight);
+    }
+
+    // Load night mode setting on page load
+    const savedNightMode = localStorage.getItem('nightMode');
+    if (savedNightMode !== null) {
+        applyNightMode(savedNightMode === 'true');
+    }
+
+    if (toggleNightModeButton) {
+        toggleNightModeButton.addEventListener('click', toggleNightMode);
+    }
 
 }); 
